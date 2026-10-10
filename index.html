@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VT + BNDW 蒙地卡羅 10,000 組資產路徑模擬器</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-primary: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.25);
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', 'Noto Sans TC', -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 90% 90%, rgba(16, 185, 129, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 50%, rgba(245, 158, 11, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .app-container {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0 30px 0;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #6366f1, #10b981);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .brand-title {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .presets-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .preset-btn:hover, .preset-btn.active {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* Main Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 25px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glass Panel */
+    .panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      margin-bottom: 25px;
+    }
+
+    .panel-title {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+    }
+
+    /* Input Controls */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-value {
+      font-weight: 600;
+      color: #a5b4fc;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text-main);
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+
+    select option {
+      background-color: #161e31;
+      color: #f3f4f6;
+      padding: 8px;
+    }
+
+    input[type="number"]:focus, select:focus {
+      border-color: var(--accent-primary);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-primary);
+      cursor: pointer;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #374151;
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    .run-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 15px var(--accent-glow);
+      margin-top: 10px;
+    }
+
+    .run-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent-primary);
+    }
+
+    .kpi-card.success::before { background: var(--success); }
+    .kpi-card.warning::before { background: var(--warning); }
+    .kpi-card.danger::before { background: var(--danger); }
+
+    .kpi-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .kpi-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* Charts Tab & Wrapper */
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chart-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pill-btn.active {
+      background: var(--accent-primary);
+      color: white;
+      border-color: var(--accent-primary);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 380px;
+      width: 100%;
+    }
+
+    /* Data Table */
+    .table-wrapper {
+      overflow-x: auto;
+      max-height: 450px;
+      overflow-y: auto;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    th:first-child, td:first-child {
+      text-align: center;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .badge-p10 { color: #ef4444; font-weight: 600; }
+    .badge-p50 { color: #6366f1; font-weight: 700; }
+    .badge-p90 { color: #10b981; font-weight: 600; }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .info-box {
+      background: rgba(99, 102, 241, 0.08);
+      border-left: 3px solid var(--accent-primary);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">MC</div>
+        <div>
+          <div class="brand-title">蒙地卡羅資產模擬器</div>
+        </div>
+      </div>
+
+    </header>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <!-- Sidebar Controls -->
+      <aside>
+        <div class="panel">
+          <div class="panel-title">
+            <span>模擬參數設定</span>
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">
+              <span>初始資產 (元)</span>
+              <span class="form-value" id="val-initialCapital">15,000,000</span>
+            </div>
+            <input type="number" id="initialCapital" value="15000000" step="500000" onchange="updateSim()">
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">
+              <span>每年預期薪資投入 (元/年) <small style="color:var(--text-muted);"></small></span>
+              <span class="form-value" id="val-annualContribution">600,000</span>
+            </div>
+            <input type="number" id="annualContribution" value="600000" step="12000" onchange="updateSim()">
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">投入頻率</div>
+            <select id="contributionFrequency" onchange="updateSim()">
+              <option value="monthly" selected>定期定額</option>
+              <option value="annual">單筆投入</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">
+              <span>投資年數: <strong id="val-years">10</strong> 年</span>
+            </div>
+            <input type="range" id="years" min="1" max="40" value="10" oninput="document.getElementById('val-years').innerText=this.value; updateSim();">
+          </div>
+
+          <div class="form-group">
+            <div class="form-label">
+              <span>資產配置: VT <strong id="val-vtWeight">80</strong>% / BNDW <strong id="val-bndwWeight">20</strong>%</span>
+            </div>
+            <input type="range" id="vtWeight" min="0" max="100" value="80" oninput="syncWeights(this.value); updateSim();">
+          </div>
+
+          <!-- ETF Parameters -->
+          <div style="border-top: 1px solid var(--card-border); padding-top: 12px; margin-top: 12px;">
+            <div class="form-label" style="font-weight:600; color:#fff;">資產預期參數</div>
+            
+            <div class="input-row">
+              <div class="form-group">
+                <div class="form-label">VT 預期報酬率 (%)</div>
+                <input type="number" id="vtReturn" value="8.5" step="0.1" onchange="updateSim()">
+              </div>
+              <div class="form-group">
+                <div class="form-label">VT 年化波動度 (%)</div>
+                <input type="number" id="vtVol" value="15.5" step="0.1" onchange="updateSim()">
+              </div>
+            </div>
+
+            <div class="input-row">
+              <div class="form-group">
+                <div class="form-label">BNDW 預期報酬率 (%)</div>
+                <input type="number" id="bndwReturn" value="3.8" step="0.1" onchange="updateSim()">
+              </div>
+              <div class="form-group">
+                <div class="form-label">BNDW 年化波動度 (%)</div>
+                <input type="number" id="bndwVol" value="5.5" step="0.1" onchange="updateSim()">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <div class="form-label">股債相關係數 (ρ)</div>
+              <input type="number" id="correlation" value="0.15" min="-1" max="1" step="0.05" onchange="updateSim()">
+            </div>
+          </div>
+
+          <!-- Advanced Settings -->
+          <div style="border-top: 1px solid var(--card-border); padding-top: 12px; margin-top: 12px;">
+            <div class="form-group">
+              <div class="form-label">
+                <span>目標退休資產 (元)</span>
+              </div>
+              <input type="number" id="targetGoal" value="30000000" step="1000000" onchange="updateSim()">
+            </div>
+
+            <div class="input-row">
+              <div class="form-group">
+                <div class="form-label">預期通膨率 (%)</div>
+                <input type="number" id="inflation" value="2.0" step="0.1" onchange="updateSim()">
+              </div>
+              <div class="form-group">
+                <div class="form-label">模擬路徑組數</div>
+                <select id="simulations" onchange="updateSim()">
+                  <option value="1000">1,000 組</option>
+                  <option value="5000">5,000 組</option>
+                  <option value="10000" selected>10,000 組</option>
+                  <option value="20000">20,000 組</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <span>依通膨折現 (顯示實質購買力)</span>
+              <label class="switch">
+                <input type="checkbox" id="adjustInflation" onchange="updateSim()">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="run-btn" id="run-btn" onclick="updateSim()">執行 <span id="btn-sim-count">10,000</span> 組路徑蒙地卡羅模擬</button>
+
+        </div>
+      </aside>
+
+      <!-- Main Display Area -->
+      <main>
+        <!-- KPI Summary Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">中位數最終資產 (P50)</div>
+            <div class="kpi-value" id="kpi-median">NT$ 0</div>
+            <div class="kpi-sub" id="kpi-roi">總報酬率: --%</div>
+          </div>
+
+          <div class="kpi-card success">
+            <div class="kpi-label">樂觀資產 (P90)</div>
+            <div class="kpi-value" id="kpi-p90">NT$ 0</div>
+            <div class="kpi-sub">前 10% 樂觀情境</div>
+          </div>
+
+          <div class="kpi-card danger">
+            <div class="kpi-label">悲觀資產 (P10)</div>
+            <div class="kpi-value" id="kpi-p10">NT$ 0</div>
+            <div class="kpi-sub">後 10% 劣勢情境</div>
+          </div>
+
+          <div class="kpi-card success">
+            <div class="kpi-label">達標成功機率</div>
+            <div class="kpi-value" id="kpi-success">0.0%</div>
+            <div class="kpi-sub" id="kpi-target-label">目標: 2,000 萬</div>
+          </div>
+
+          <div class="kpi-card warning">
+            <div class="kpi-label">總累積投入成本</div>
+            <div class="kpi-value" id="kpi-invested">NT$ 0</div>
+            <div class="kpi-sub" id="kpi-cagr">預期年化 (CAGR): --%</div>
+          </div>
+        </div>
+
+        <!-- Fan Chart Panel -->
+        <div class="panel">
+          <div class="chart-header">
+            <div>
+              <div class="panel-title" style="margin-bottom: 2px;">蒙地卡羅資產變化路徑圖 (Fan Chart)</div>
+              <div style="font-size:12px; color:var(--text-muted);">包含中位數 (P50)、25%-75% 區間、10%-90% 區間及 50 條隨機真實模擬路徑</div>
+              <div id="hover-path-info" style="font-size:13px; margin-top:5px; font-weight:600; min-height: 20px;">
+                <span style="color:var(--text-muted); font-size:12px;">(滑鼠懸停於任一路徑即可查看該路徑最終資產金額)</span>
+              </div>
+            </div>
+            <div class="chart-controls">
+              <select id="sample-paths-select" onchange="updateSim()" style="background: rgba(255, 255, 255, 0.08); color: #fff; border: 1px solid var(--card-border); padding: 5px 12px; border-radius: 20px; font-size: 12px; outline: none; cursor: pointer;">
+                <option value="25" style="background-color: #161e31; color: #f3f4f6;">顯示 25 條隨機路徑</option>
+                <option value="50" selected style="background-color: #161e31; color: #f3f4f6;">顯示 50 條隨機路徑 (預設)</option>
+                <option value="100" style="background-color: #161e31; color: #f3f4f6;">顯示 100 條隨機路徑</option>
+                <option value="200" style="background-color: #161e31; color: #f3f4f6;">顯示 200 條隨機路徑</option>
+                <option value="500" style="background-color: #161e31; color: #f3f4f6;">顯示 500 條隨機路徑</option>
+                <option value="0" style="background-color: #161e31; color: #f3f4f6;">隱藏隨機路徑 (0 條)</option>
+              </select>
+              <button class="pill-btn active" id="btn-dualy-toggle" onclick="toggleDualY()">雙 Y 軸 (左右對稱刻度)</button>
+              <button class="pill-btn active" id="btn-scale-toggle" onclick="toggleLogScale()">對數座標軸</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="fanChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Distribution & Quantile Evolution Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 25px;">
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-title">最終資產分佈直方圖 (Year N)</div>
+            <div class="chart-container" style="height: 280px;">
+              <canvas id="histChart"></canvas>
+            </div>
+          </div>
+          
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-title">每年最樂觀 vs 最悲觀分位趨勢</div>
+            <div class="chart-container" style="height: 280px;">
+              <canvas id="quantileTrendChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Table Panel -->
+        <div class="panel">
+          <div class="chart-header">
+            <div class="panel-title" style="margin-bottom: 0;">每年的詳細統計分位數表格 (P1 ~ P99)</div>
+            <button class="btn-secondary" onclick="exportCSV()">匯出 CSV 報表</button>
+          </div>
+          <div class="table-wrapper">
+            <table id="dataTable">
+              <thead>
+                <tr>
+                  <th>年份</th>
+                  <th>累積投入成本</th>
+                  <th>極悲觀 (P1)</th>
+                  <th>悲觀 (P10)</th>
+                  <th>保守 (P25)</th>
+                  <th>中位數 (P50)</th>
+                  <th>良好 (P75)</th>
+                  <th>樂觀 (P90)</th>
+                  <th>極樂觀 (P99)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Table rows injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Pure JavaScript Logic -->
+  <script>
+    let fanChartInstance = null;
+    let histChartInstance = null;
+    let quantileTrendChartInstance = null;
+    let lastSimResult = null;
+    let showSamplePaths = true;
+    let isLogScale = true;
+    let showDualY = true;
+
+    const presets = {
+      '8020': { vt: 80, bndw: 20, vtR: 8.5, vtV: 15.5, bndwR: 3.8, bndwV: 5.5, corr: 0.15 },
+      '6040': { vt: 60, bndw: 40, vtR: 8.5, vtV: 15.5, bndwR: 3.8, bndwV: 5.5, corr: 0.15 },
+      '1000': { vt: 100, bndw: 0, vtR: 8.5, vtV: 15.5, bndwR: 3.8, bndwV: 5.5, corr: 0.15 },
+      '4060': { vt: 40, bndw: 60, vtR: 8.5, vtV: 15.5, bndwR: 3.8, bndwV: 5.5, corr: 0.15 }
+    };
+
+    function loadPreset(key, evt) {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      if (evt && evt.target) evt.target.classList.add('active');
+
+      const p = presets[key];
+      document.getElementById('vtWeight').value = p.vt;
+      document.getElementById('val-vtWeight').innerText = p.vt;
+      document.getElementById('val-bndwWeight').innerText = p.bndw;
+      document.getElementById('vtReturn').value = p.vtR;
+      document.getElementById('vtVol').value = p.vtV;
+      document.getElementById('bndwReturn').value = p.bndwR;
+      document.getElementById('bndwVol').value = p.bndwV;
+      document.getElementById('correlation').value = p.corr;
+      
+      updateSim();
+    }
+
+    function syncWeights(val) {
+      document.getElementById('val-vtWeight').innerText = val;
+      document.getElementById('val-bndwWeight').innerText = 100 - val;
+    }
+
+    function generateGaussian() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    function getPercentile(sortedValues, p) {
+      if (sortedValues.length === 0) return 0;
+      const index = (sortedValues.length - 1) * p;
+      const lower = Math.floor(index);
+      const upper = Math.ceil(index);
+      const weight = index - lower;
+      if (upper >= sortedValues.length) return sortedValues[sortedValues.length - 1];
+      return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+    }
+
+    function formatCurrency(num) {
+      return 'NT$ ' + Math.round(num).toLocaleString('zh-TW');
+    }
+
+    function runMonteCarlo() {
+      const initialCapital = parseFloat(document.getElementById('initialCapital').value) || 0;
+      const annualContribution = parseFloat(document.getElementById('annualContribution').value) || 0;
+      const isMonthly = document.getElementById('contributionFrequency').value === 'monthly';
+      const years = parseInt(document.getElementById('years').value) || 25;
+      const simulations = parseInt(document.getElementById('simulations').value) || 10000;
+      
+      const vtW = (parseFloat(document.getElementById('vtWeight').value) || 80) / 100;
+      const bndwW = 1.0 - vtW;
+      const vtR = (parseFloat(document.getElementById('vtReturn').value) || 8.5) / 100;
+      const vtV = (parseFloat(document.getElementById('vtVol').value) || 15.5) / 100;
+      const bndwR = (parseFloat(document.getElementById('bndwReturn').value) || 3.8) / 100;
+      const bndwV = (parseFloat(document.getElementById('bndwVol').value) || 5.5) / 100;
+      const corr = parseFloat(document.getElementById('correlation').value) || 0.15;
+      const inf = (parseFloat(document.getElementById('inflation').value) || 2.0) / 100;
+      const adjustInf = document.getElementById('adjustInflation').checked;
+      const targetGoal = parseFloat(document.getElementById('targetGoal').value) || 30000000;
+
+      const portReturnGross = vtW * vtR + bndwW * bndwR;
+      const portReturnEffective = adjustInf ? ((1 + portReturnGross) / (1 + inf) - 1) : portReturnGross;
+
+      const portVar = (vtW*vtW * vtV*vtV) + (bndwW*bndwW * bndwV*bndwV) + (2 * vtW * bndwW * vtV * bndwV * corr);
+      const portVol = Math.sqrt(Math.max(0, portVar));
+
+      const dt = 1 / 12;
+      const monthlyDrift = (portReturnEffective - 0.5 * portVol * portVol) * dt;
+      const monthlyVol = portVol * Math.sqrt(dt);
+
+      const pathValues = Array.from({ length: simulations }, () => new Float64Array(years + 1));
+      const cumulativeCost = new Float64Array(years + 1);
+      cumulativeCost[0] = initialCapital;
+
+      for (let y = 1; y <= years; y++) {
+        cumulativeCost[y] = cumulativeCost[y - 1] + annualContribution;
+      }
+
+      for (let sim = 0; sim < simulations; sim++) {
+        let asset = initialCapital;
+        pathValues[sim][0] = asset;
+
+        for (let y = 1; y <= years; y++) {
+          const monthlyContrib = isMonthly ? annualContribution / 12 : 0;
+          if (!isMonthly) asset += annualContribution;
+
+          for (let m = 0; m < 12; m++) {
+            if (isMonthly) asset += monthlyContrib;
+            const z = generateGaussian();
+            asset *= Math.exp(monthlyDrift + monthlyVol * z);
+          }
+
+          pathValues[sim][y] = asset;
+        }
+      }
+
+      const annualStats = [];
+      const tempArray = new Float64Array(simulations);
+
+      for (let y = 0; y <= years; y++) {
+        for (let sim = 0; sim < simulations; sim++) tempArray[sim] = pathValues[sim][y];
+        tempArray.sort();
+
+        const sum = tempArray.reduce((a, b) => a + b, 0);
+
+        annualStats.push({
+          year: y,
+          totalCost: Math.round(cumulativeCost[y]),
+          p1: getPercentile(tempArray, 0.01),
+          p5: getPercentile(tempArray, 0.05),
+          p10: getPercentile(tempArray, 0.10),
+          p25: getPercentile(tempArray, 0.25),
+          p50: getPercentile(tempArray, 0.50),
+          p75: getPercentile(tempArray, 0.75),
+          p90: getPercentile(tempArray, 0.90),
+          p95: getPercentile(tempArray, 0.95),
+          p99: getPercentile(tempArray, 0.99),
+          mean: sum / simulations
+        });
+      }
+
+      const requestedSamples = parseInt(document.getElementById('sample-paths-select')?.value || '50');
+      const numSamples = Math.min(isNaN(requestedSamples) ? 50 : requestedSamples, simulations);
+      const samplePaths = [];
+
+      if (numSamples > 0) {
+        // 1. 找出各年達到最高資產與最低資產的路徑 index
+        const yearlyMaxSims = new Map();
+        const yearlyMinSims = new Map();
+
+        for (let y = 1; y <= years; y++) {
+          let maxVal = -Infinity;
+          let maxSim = 0;
+          let minVal = Infinity;
+          let minSim = 0;
+          for (let sim = 0; sim < simulations; sim++) {
+            const val = pathValues[sim][y];
+            if (val > maxVal) {
+              maxVal = val;
+              maxSim = sim;
+            }
+            if (val < minVal) {
+              minVal = val;
+              minSim = sim;
+            }
+          }
+          yearlyMaxSims.set(y, { sim: maxSim, val: maxVal });
+          yearlyMinSims.set(y, { sim: minSim, val: minVal });
+        }
+
+        // 2. 找出最終年 (Year N) 全局最高與最低資產路徑
+        let overallMaxSim = 0;
+        let overallMaxVal = -Infinity;
+        let overallMinSim = 0;
+        let overallMinVal = Infinity;
+
+        for (let sim = 0; sim < simulations; sim++) {
+          const finalVal = pathValues[sim][years];
+          if (finalVal > overallMaxVal) {
+            overallMaxVal = finalVal;
+            overallMaxSim = sim;
+          }
+          if (finalVal < overallMinVal) {
+            overallMinVal = finalVal;
+            overallMinSim = sim;
+          }
+        }
+
+        const addedSims = new Set();
+
+        // 必納入：全域最終最高資產路徑 (極致樂觀)
+        addedSims.add(overallMaxSim);
+        samplePaths.push({
+          path: Array.from(pathValues[overallMaxSim]),
+          label: '實際最高資產路徑 (極致樂觀)',
+          type: 'max',
+          showInLegend: true
+        });
+
+        // 必納入：全域最終最低資產路徑 (極致悲觀)
+        addedSims.add(overallMinSim);
+        samplePaths.push({
+          path: Array.from(pathValues[overallMinSim]),
+          label: '實際最低資產路徑 (極致悲觀)',
+          type: 'min',
+          showInLegend: true
+        });
+
+        // 必納入：各年度達成最高與最低資產之實際路徑
+        for (let y = 1; y <= years; y++) {
+          const maxObj = yearlyMaxSims.get(y);
+          if (maxObj && !addedSims.has(maxObj.sim)) {
+            addedSims.add(maxObj.sim);
+            samplePaths.push({
+              path: Array.from(pathValues[maxObj.sim]),
+              label: `第 ${y} 年最高資產路徑`,
+              type: 'max',
+              showInLegend: false
+            });
+          }
+
+          const minObj = yearlyMinSims.get(y);
+          if (minObj && !addedSims.has(minObj.sim)) {
+            addedSims.add(minObj.sim);
+            samplePaths.push({
+              path: Array.from(pathValues[minObj.sim]),
+              label: `第 ${y} 年最低資產路徑`,
+              type: 'min',
+              showInLegend: false
+            });
+          }
+        }
+
+        // 3. 用等距抽樣補充剩餘名額至目標數量
+        const remainingCount = Math.max(0, numSamples - samplePaths.length);
+        if (remainingCount > 0) {
+          const step = Math.floor(simulations / remainingCount);
+          let firstNormal = true;
+          for (let i = 0; i < remainingCount; i++) {
+            const idx = Math.min(i * step, simulations - 1);
+            if (!addedSims.has(idx)) {
+              addedSims.add(idx);
+              samplePaths.push({
+                path: Array.from(pathValues[idx]),
+                label: firstNormal ? '模擬隨機路徑' : '',
+                type: 'normal',
+                showInLegend: firstNormal
+              });
+              firstNormal = false;
+            }
+          }
+        }
+      }
+
+      for (let sim = 0; sim < simulations; sim++) tempArray[sim] = pathValues[sim][years];
+      tempArray.sort();
+
+      const totalInvested = cumulativeCost[years];
+      const medianFinal = getPercentile(tempArray, 0.50);
+      const p10Final = getPercentile(tempArray, 0.10);
+      const p90Final = getPercentile(tempArray, 0.90);
+      const medianNetProfit = medianFinal - totalInvested;
+      const medianROI = (medianNetProfit / totalInvested) * 100;
+      const medianCAGR = (Math.pow(medianFinal / initialCapital, 1 / years) - 1) * 100;
+
+      let successCount = 0;
+      for (let i = 0; i < simulations; i++) {
+        if (tempArray[i] >= targetGoal) successCount++;
+      }
+      const successRate = (successCount / simulations) * 100;
+
+      const numBins = 20;
+      const minVal = tempArray[0];
+      const maxVal = getPercentile(tempArray, 0.98);
+      const binWidth = (maxVal - minVal) / numBins;
+
+      const histogram = [];
+      for (let b = 0; b < numBins; b++) {
+        const binMin = minVal + b * binWidth;
+        const binMax = binMin + binWidth;
+        let count = 0;
+        for (let i = 0; i < simulations; i++) {
+          const val = tempArray[i];
+          if (b === numBins - 1 ? val >= binMin : (val >= binMin && val < binMax)) count++;
+        }
+        histogram.push({
+          binMin,
+          binMax,
+          label: (binMin / 10000).toFixed(0) + '萬',
+          count
+        });
+      }
+
+      return {
+        annualStats,
+        samplePaths,
+        finalValues: Array.from(tempArray),
+        histogram,
+        summary: {
+          totalInvested,
+          medianFinal,
+          p10Final,
+          p90Final,
+          medianNetProfit,
+          medianROI,
+          medianCAGR,
+          successRate,
+          targetGoal
+        }
+      };
+    }
+
+    function updateSim() {
+      document.getElementById('val-initialCapital').innerText = parseFloat(document.getElementById('initialCapital').value).toLocaleString();
+      document.getElementById('val-annualContribution').innerText = parseFloat(document.getElementById('annualContribution').value).toLocaleString();
+      
+      const sims = parseInt(document.getElementById('simulations').value) || 10000;
+      const btnSimCount = document.getElementById('btn-sim-count');
+      if (btnSimCount) btnSimCount.innerText = sims.toLocaleString();
+
+      lastSimResult = runMonteCarlo();
+      
+      renderKPIs(lastSimResult.summary);
+      renderFanChart(lastSimResult);
+      renderHistChart(lastSimResult);
+      renderQuantileTrendChart(lastSimResult);
+      renderTable(lastSimResult.annualStats);
+    }
+
+    function renderKPIs(s) {
+      document.getElementById('kpi-median').innerText = formatCurrency(s.medianFinal);
+      document.getElementById('kpi-roi').innerText = `總報酬率: +${s.medianROI.toFixed(1)}%`;
+      document.getElementById('kpi-p90').innerText = formatCurrency(s.p90Final);
+      document.getElementById('kpi-p10').innerText = formatCurrency(s.p10Final);
+      document.getElementById('kpi-success').innerText = s.successRate.toFixed(1) + '%';
+      document.getElementById('kpi-target-label').innerText = `目標: ${(s.targetGoal / 10000).toFixed(0)} 萬`;
+      document.getElementById('kpi-invested').innerText = formatCurrency(s.totalInvested);
+      document.getElementById('kpi-cagr').innerText = `預期年化 (CAGR): ${s.medianCAGR.toFixed(2)}%`;
+    }
+
+    function toggleDualY() {
+      showDualY = !showDualY;
+      document.getElementById('btn-dualy-toggle').classList.toggle('active');
+      renderFanChart(lastSimResult);
+    }
+
+
+
+    function toggleLogScale() {
+      isLogScale = !isLogScale;
+      document.getElementById('btn-scale-toggle').classList.toggle('active');
+      renderFanChart(lastSimResult);
+    }
+
+    function renderFanChart(res) {
+      const ctx = document.getElementById('fanChart').getContext('2d');
+      if (fanChartInstance) fanChartInstance.destroy();
+
+      const labels = res.annualStats.map(s => `第 ${s.year} 年`);
+      const p10Data = res.annualStats.map(s => s.p10);
+      const p25Data = res.annualStats.map(s => s.p25);
+      const p50Data = res.annualStats.map(s => s.p50);
+      const p75Data = res.annualStats.map(s => s.p75);
+      const p90Data = res.annualStats.map(s => s.p90);
+      const costData = res.annualStats.map(s => s.totalCost);
+
+      const datasets = [
+        {
+          label: '累積投入成本',
+          data: costData,
+          borderColor: '#9ca3af',
+          borderDash: [5, 5],
+          borderWidth: 2,
+          hoverBorderWidth: 4,
+          hoverBorderColor: '#ffffff',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+        },
+        {
+          label: '中位數 (P50)',
+          data: p50Data,
+          borderColor: '#6366f1',
+          borderWidth: 3,
+          hoverBorderWidth: 5,
+          hoverBorderColor: '#a5b4fc',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+        },
+        {
+          label: '25%-75% 分位區間',
+          data: p75Data,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(99, 102, 241, 0.25)',
+          fill: '-1',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+        },
+        {
+          label: 'P25 底界',
+          data: p25Data,
+          borderColor: 'transparent',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+        },
+        {
+          label: '10%-90% 擴展區間',
+          data: p90Data,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+          fill: '-1',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+        },
+        {
+          label: 'P10 底界',
+          data: p10Data,
+          borderColor: 'transparent',
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+        },
+      ];
+
+      if (res.samplePaths && res.samplePaths.length > 0) {
+        res.samplePaths.forEach((item) => {
+          const isMax = item.type === 'max';
+          const isMin = item.type === 'min';
+          
+          let borderColor = 'rgba(255, 255, 255, 0.08)';
+          let borderWidth = 1;
+          let hoverBorderColor = '#38bdf8';
+          let borderDash = undefined;
+
+          if (isMax) {
+            borderColor = item.label.includes('實際最高') ? '#10b981' : 'rgba(16, 185, 129, 0.5)';
+            borderWidth = item.label.includes('實際最高') ? 2.5 : 1.5;
+            hoverBorderColor = '#34d399';
+          } else if (isMin) {
+            borderColor = item.label.includes('實際最低') ? '#ef4444' : 'rgba(239, 68, 68, 0.5)';
+            borderWidth = item.label.includes('實際最低') ? 2.5 : 1.5;
+            hoverBorderColor = '#f87171';
+            borderDash = [4, 4];
+          }
+
+          datasets.push({
+            label: item.label || '',
+            data: item.path,
+            borderColor,
+            borderWidth,
+            borderDash,
+            hoverBorderColor,
+            hoverBorderWidth: 4,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+          });
+        });
+      }
+
+      fanChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'dataset', intersect: false },
+          onHover: (evt, elements, chart) => {
+            const badge = document.getElementById('hover-path-info');
+            if (!badge) return;
+            if (elements && elements.length > 0) {
+              const datasetIndex = elements[0].datasetIndex;
+              const dataset = chart.data.datasets[datasetIndex];
+              if (dataset && dataset.data && dataset.data.length > 0) {
+                const finalVal = dataset.data[dataset.data.length - 1];
+                const years = dataset.data.length - 1;
+                const label = dataset.label ? dataset.label : '模擬路徑樣本';
+                const isMax = label.includes('最高');
+                const isMin = label.includes('最低');
+                const color = isMax ? '#10b981' : isMin ? '#ef4444' : '#38bdf8';
+                badge.innerHTML = `<span style="color:${color}; font-weight:700;">▸ ${label} 第 ${years} 年最終資產：${formatCurrency(finalVal)}</span>`;
+              }
+            } else {
+              badge.innerHTML = '<span style="color:var(--text-muted); font-size:12px;">(滑鼠懸停於任一路徑即可查看該路徑最終資產金額)</span>';
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                filter: item => item.text && !item.text.includes('底界') && item.text !== '' && !item.text.includes('年最高') && !item.text.includes('年最低')
+              }
+            },
+            tooltip: {
+              enabled: true,
+              displayColors: false,
+              filter: (item, index) => index === 0,
+              callbacks: {
+                title: () => '',
+                label: (ctx) => {
+                  const dataset = ctx.chart.data.datasets[ctx.datasetIndex];
+                  if (!dataset || !dataset.data) return '';
+                  const finalVal = dataset.data[dataset.data.length - 1];
+                  const years = dataset.data.length - 1;
+                  const label = dataset.label ? dataset.label : '模擬路徑樣本';
+                  return `${label} 第 ${years} 年最終資產: ${formatCurrency(finalVal)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: {
+              type: isLogScale ? 'logarithmic' : 'linear',
+              position: 'left',
+              title: { display: true, text: '資產總額 (NT$ 萬)', color: '#9ca3af' },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { callback: v => (v / 10000).toFixed(0) + '萬' }
+            },
+            ...(showDualY ? {
+              y1: {
+                type: isLogScale ? 'logarithmic' : 'linear',
+                position: 'right',
+                title: { display: true, text: '資產總額 (NT$ 萬)', color: '#9ca3af' },
+                grid: { drawOnChartArea: false },
+                afterDataLimits: (axis) => {
+                  if (axis.chart.scales && axis.chart.scales.y) {
+                    axis.min = axis.chart.scales.y.min;
+                    axis.max = axis.chart.scales.y.max;
+                  }
+                },
+                ticks: { callback: v => (v / 10000).toFixed(0) + '萬' }
+              }
+            } : {})
+          }
+        }
+      });
+    }
+
+    function renderHistChart(res) {
+      const ctx = document.getElementById('histChart').getContext('2d');
+      if (histChartInstance) histChartInstance.destroy();
+
+      const labels = res.histogram.map(h => h.label);
+      const data = res.histogram.map(h => h.count);
+
+      histChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: '組數頻率',
+            data,
+            backgroundColor: 'rgba(99, 102, 241, 0.7)',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' } }
+          }
+        }
+      });
+    }
+
+    function renderQuantileTrendChart(res) {
+      const ctx = document.getElementById('quantileTrendChart').getContext('2d');
+      if (quantileTrendChartInstance) quantileTrendChartInstance.destroy();
+
+      const labels = res.annualStats.map(s => `Y${s.year}`);
+
+      quantileTrendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: '樂觀 P90', data: res.annualStats.map(s => s.p90), borderColor: '#10b981', borderWidth: 2, pointRadius: 0 },
+            { label: '中位 P50', data: res.annualStats.map(s => s.p50), borderColor: '#6366f1', borderWidth: 2, pointRadius: 0 },
+            { label: '悲觀 P10', data: res.annualStats.map(s => s.p10), borderColor: '#ef4444', borderWidth: 2, pointRadius: 0 }
+          ]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          scales: {
+            x: { grid: { display: false } },
+            y: {
+              position: 'left',
+              title: { display: true, text: '資產金額 (萬)', color: '#a5b4fc' },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { callback: v => (v / 10000).toFixed(0) + '萬' }
+            },
+            y1: {
+              position: 'right',
+              title: { display: true, text: '資產金額 (萬)', color: '#a5b4fc' },
+              grid: { drawOnChartArea: false },
+              afterDataLimits: (axis) => {
+                if (axis.chart.scales && axis.chart.scales.y) {
+                  axis.min = axis.chart.scales.y.min;
+                  axis.max = axis.chart.scales.y.max;
+                }
+              },
+              ticks: { callback: v => (v / 10000).toFixed(0) + '萬' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTable(stats) {
+      const tbody = document.querySelector('#dataTable tbody');
+      tbody.innerHTML = '';
+
+      stats.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>第 ${s.year} 年</td>
+          <td>${formatCurrency(s.totalCost)}</td>
+          <td>${formatCurrency(s.p1)}</td>
+          <td class="badge-p10">${formatCurrency(s.p10)}</td>
+          <td>${formatCurrency(s.p25)}</td>
+          <td class="badge-p50">${formatCurrency(s.p50)}</td>
+          <td>${formatCurrency(s.p75)}</td>
+          <td class="badge-p90">${formatCurrency(s.p90)}</td>
+          <td>${formatCurrency(s.p99)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function exportCSV() {
+      if (!lastSimResult) return;
+      let csv = '年份,累積投入成本,極悲觀(P1),悲觀(P10),保守(P25),中位數(P50),良好(P75),樂觀(P90),極樂觀(P99)\n';
+      lastSimResult.annualStats.forEach(s => {
+        csv += `${s.year},${s.totalCost},${Math.round(s.p1)},${Math.round(s.p10)},${Math.round(s.p25)},${Math.round(s.p50)},${Math.round(s.p75)},${Math.round(s.p90)},${Math.round(s.p99)}\n`;
+      });
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `VT_BNDW_MonteCarlo_Report.csv`;
+      a.click();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSim();
+    });
+  </script>
+</body>
+</html>
